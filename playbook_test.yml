@@ -1,0 +1,86 @@
+---
+- name: Download all you need
+  hosts: all
+  remote_user: root
+
+  tasks:
+  - name: download docker
+    ansible.builtin.yum:
+      name: 
+      - docker
+      - docker-compose
+      state: latest
+  - name: start docker service
+    ansible.builtin.command:
+      cmd: service docker start
+- name: Copy docker-compose file
+  hosts: all
+  remote_user: root
+
+  tasks:
+  - name: create dir
+    ansible.builtin.file:
+      path: /var/prometh
+      state: directory
+      mode: '0755'
+  - name: change workdir
+    ansible.builtin.command:
+      chdir: /var/prometh
+      cmd: pwd
+  - name: Copy compose file
+    ansible.builtin.copy:
+      src: /home/kualv/monitoring_ansible/docker-compose.yml
+      dest: /var/prometh/docker-compose.yml
+      owner: root
+      group: root
+  - name: Copy prometheus config file  
+    ansible.builtin.copy:
+      src: /home/kualv/monitoring_ansible/prometheus.yml
+      dest: /var/prometh/prometheus.yml
+      owner: root
+      group: root
+- name: Run docker compose
+  hosts: all
+  remote_user: root
+  
+  tasks:
+  - name: run docker compose
+    ansible.builtin.command:
+      chdir: /var/prometh
+      cmd: docker-compose up -d
+
+- name: Install node exporter
+  hosts: all
+  remote_user: root
+
+  tasks: 
+  - name: Download node exporter
+    ansible.builtin.command:
+      chdir: /var/prometh
+      cmd: wget https://github.com/prometheus/node_exporter/releases/download/v1.6.0/node_exporter-1.6.0.linux-amd64.tar.gz
+  - name: Extract files
+    ansible.builtin.command:
+      chdir: /var/prometh
+      cmd: tar -xf node_exporter-1.6.0.linux-amd64.tar.gz
+  - name: Copy executable to usr/bin
+    ansible.builtin.copy:
+      src: /var/prometh/node_exporter-1.6.0.linux-amd64/node_exporter
+      dest: /usr/bin/node_exporter
+      remote_src: yes
+      owner: root
+      group: root
+      mode: '755'
+  - name: Copy service file
+    ansible.builtin.copy:
+      src: ./node_exporter.service
+      dest: /etc/systemd/system/node_exporter.service
+      owner: root
+      group: root
+      mode: '664'
+  - name: Daemon-reload
+    ansible.builtin.command:
+      cmd: systemctl daemon-reload
+  - name: Run service
+    ansible.builtin.command:
+      cmd: service node_exporter start
+...
